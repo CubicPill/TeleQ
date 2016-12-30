@@ -64,6 +64,8 @@ class QQSync(QQBot, Thread):
 
 
 def add_to_qq_queue(bot, update):
+    if update.message.chat_id != config['Telegram']:
+        return
     fn = update.message.from_user.first_name
     ln = update.message.from_user.last_name
     usn = update.message.from_user.username
