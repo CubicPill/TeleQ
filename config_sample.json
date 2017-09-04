@@ -3,6 +3,7 @@
   "group": "123",
   "telegram": "123",
   "token": "TOKEN",
+  "bot_id": "123",
   "qq_url": "http://127.0.0.1:8188",
   "tg_port": 2515,
   "admin_qq": [
@@ -10,5 +11,6 @@
   ],
   "admin_tg": [
     "97735852"
-  ]
+  ],
+  "login_chat": ""
 }
