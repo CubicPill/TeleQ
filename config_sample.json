@@ -1,5 +1,14 @@
 {
-  "QQ": 123,
-  "Telegram": 123,
-  "token": "TOKEN"
+  "qq_number": "123",
+  "group": "123",
+  "telegram": "123",
+  "token": "TOKEN",
+  "qq_url": "http://127.0.0.1:8188",
+  "tg_port": 2515,
+  "admin_qq": [
+    "765958774"
+  ],
+  "admin_tg": [
+    "97735852"
+  ]
 }
