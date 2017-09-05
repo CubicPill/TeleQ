@@ -3,8 +3,10 @@ import json
 import requests
 import os
 import sys
+import re
 from qqbot.utf8logger import INFO, DEBUG
 
+p = re.compile(r'/Emoji(\d*)')
 CONFIG_FILE = '/root/TeleQ/config.json'
 remarks = dict()
 with open(CONFIG_FILE) as f:
@@ -27,6 +29,7 @@ def onStartupComplete(bot):
 
 
 def onQQMessage(bot, contact, member, content: str):
+    content = p.sub(recover_emoji, content)  # recover emoji characters
     if contact.ctype == 'group':
         if str(member.qq) == config['qq_number']:  # ignore message sent by self
             return
@@ -90,3 +93,8 @@ def save_remark():
     with open('remark_qq.json', 'w') as f:
         json.dump(remarks, f)
     INFO('Remark file saved')
+
+
+def recover_emoji(match):
+    dec_num = int(match.group(1))
+    return (b'\\U%08x' % dec_num).decode('unicode_escape')

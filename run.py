@@ -138,7 +138,7 @@ def handle_message(bot, update: Update):
         rusn = update.message.reply_to_message.from_user.username
         rdisp = remarks.get(str(ruid)) if str(ruid) in remarks else rfn
         if str(update.message.reply_to_message.from_user.id) == config['bot_id']:  # reply to synced messages
-            match = re.match(QQ_MSG_REGEX, text.split('\n')[0])
+            match = re.search(QQ_MSG_REGEX, text)
             if match:
                 nickname = match.group(1)
                 text = '\n[In reply to @{qnick}]\n{text}' \
