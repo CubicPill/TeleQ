@@ -15,11 +15,19 @@ import requests
 from urllib.parse import quote
 import flask
 import re
+import os
 
-QQ_MSG_REGEX = '(.*?) (\(\d*?\)):'
+QQ_MSG_REGEX = '^(.*?) :'
 tele_send_queue = Queue()
 with open('config.json') as f:
     config = json.load(f)
+if not os.path.isfile('remark.json'):
+    with open('remark.json', 'w') as f:
+        json.dump({}, f)
+    remarks = dict()
+else:
+    with open('remark.json') as f:
+        remarks = json.load(f)
 tele_bot = Bot(config['token'])
 app = Flask(__name__)
 app.logger.setLevel(logging.WARNING)
@@ -65,13 +73,15 @@ def send_message(chat_id, text):
 def send_qq_message(group_num, text):
     url = '{}/send/group/{}/{}'.format(config['qq_url'], group_num, quote(text))
     try:
-        requests.get(url)
+        logger.debug('GET ' + url)
+        r = requests.get(url)
+        logger.debug(r.text.replace('\n', ''))
     except requests.RequestException as e:
         logger.error(e)
 
 
 def start(bot, update):
-    update.message.reply_text('User id = {}, Chat id = {}'.format(update.message.chat_id, update.message.from_user.id))
+    update.message.reply_text('User id = {}, Chat id = {}'.format(update.message.from_user.id, update.message.chat_id))
 
 
 def restart_qq(bot, update):
@@ -87,10 +97,17 @@ def handle_message(bot, update: Update):
     if str(update.message.chat_id) != config['telegram']:
         logger.debug('Message from chat id {}, ignored'.format(update.message.chat_id))
         return
+    if update.message.text.startswith('/'):  # turn bug into feature
+        logger.debug('Ignoring message {}'.format(update.message.text))
+        return
+    uid = update.message.from_user.id
     fn = update.message.from_user.first_name
     ln = update.message.from_user.last_name
     usn = update.message.from_user.username
-    text = update.message.text
+    text = update.message.text.replace('/', '%2F')
+    if update.edited_message:
+        text = '[Edited] {}'.format(update.edited_message.text)
+    display_name = remarks.get(str(uid)) if str(uid) in remarks else fn
     if update.message.sticker:
         text = update.message.sticker.emoji + ' (Sticker)'
     elif update.message.photo:
@@ -108,36 +125,70 @@ def handle_message(bot, update: Update):
     elif update.message.game:
         text = '<Game> {}'.format(update.message.game.title)
     if update.message.forward_from:  # forwarded from user
-        text = '[Forwarded from {} {}]\n{}' \
-            .format(update.message.forward_from.first_name,
-                    update.message.forward_from.last_name, text)
+        text = '\n[Forwarded from {disp}]\n{text}' \
+            .format(disp=display_name, fn=update.message.forward_from.first_name,
+                    ln=update.message.forward_from.last_name, text=text)
     elif update.message.forward_from_chat:  # forwarded from channel
-        text = '[Forwarded from {}]\n{}' \
-            .format(update.message.forward_from_chat.title, text)
+        text = '\n[Forwarded from {cn}]\n{text}' \
+            .format(cn=update.message.forward_from_chat.title, text=text)
     if update.message.reply_to_message:
+        ruid = usn = update.message.reply_to_message.from_user.id
+        rfn = update.message.reply_to_message.from_user.first_name
+        rln = update.message.reply_to_message.from_user.last_name
+        rusn = update.message.reply_to_message.from_user.username
+        rdisp = remarks.get(str(ruid)) if str(ruid) in remarks else rfn
         if str(update.message.reply_to_message.from_user.id) == config['bot_id']:  # reply to synced messages
             match = re.match(QQ_MSG_REGEX, text.split('\n')[0])
             if match:
                 nickname = match.group(1)
-                text = '[In reply to @{}]\n{}' \
-                    .format(nickname, text)  # show @nickname directly
+                text = '\n[In reply to @{qnick}]\n{text}' \
+                    .format(qnick=nickname, text=text)  # show @nickname directly
             else:
-                text = '[In reply to {} {}]\n{}' \
-                    .format(update.message.reply_to_message.from_user.first_name,
-                            update.message.reply_to_message.from_user.last_name, text)
+                text = '\n[In reply to {rdisp}]\n{text}' \
+                    .format(rdisp=rdisp, rfn=rfn,
+                            rln=rln, text=text)
         else:
-            text = '[In reply to {} {}]\n{}' \
-                .format(update.message.reply_to_message.from_user.first_name,
-                        update.message.reply_to_message.from_user.last_name, text)  # show telegram name
+            text = '\n[In reply to {rdisp}]\n{text}' \
+                .format(rdisp=rdisp, rfn=rfn,
+                        rln=rln, text=text)  # show telegram name
 
-    message = '{} {} (@{}):\n{}'.format(fn, ln, usn, text)
-    if update.message.edit_date:
-        message = '[Edited]\n{}'.format(message)
+    # message = '{} {} (@{}):\n{}'.format(fn, ln, usn, text)
+    message = '{disp}: {text}'.format(disp=display_name, fn=fn, usn=usn, text=text)
 
     send_qq_message(config['group'], message)
     logger.info(
         'Message from Telegram group {} by user {}: {}'.format(update.message.chat.title, '{} {}'.format(fn, ln),
-                                                               message.replace('\n', ' ')))
+                                                               text.replace('\n', ' ')))
+
+
+def save_remarks():
+    with open('remark.json', 'w') as f:
+        json.dump(remarks, f)
+
+
+def set_remark(bot, update: Update):
+    if ' ' not in update.message.text:
+        return
+    fn = update.message.from_user.first_name
+    ln = update.message.from_user.last_name
+    usn = update.message.from_user.username
+    remark = update.message.text.split(' ', 1)[1]
+    global remarks
+    remarks[str(update.message.from_user.id)] = remark
+    update.message.reply_text('Success!')
+    logger.debug('User {fn} {ln} (@{usn}) set own remark to {remark}'.format(fn=fn, ln=ln, usn=usn, remark=remark))
+    save_remarks()
+
+
+def reset_remark(bot, update):
+    fn = update.message.from_user.first_name
+    ln = update.message.from_user.last_name
+    usn = update.message.from_user.username
+    global remarks
+    del remarks[str(update.message.from_user.id)]
+    update.message.reply_text('Success!')
+    logger.debug('User {fn} {ln} (@{usn}) reset own remark'.format(fn=fn, ln=ln, usn=usn))
+    save_remarks()
 
 
 @app.route('/sendTelegramMessage', methods=['POST'])
@@ -167,6 +218,8 @@ def main():
     updater = Updater(config['token'])
     updater.dispatcher.add_handler(CommandHandler('start', start))
     updater.dispatcher.add_handler(CommandHandler('restart', restart_qq))
+    updater.dispatcher.add_handler(CommandHandler('setme', set_remark))
+    updater.dispatcher.add_handler(CommandHandler('resetme', reset_remark))
     updater.dispatcher.add_handler(MessageHandler(Filters.all, handle_message))
     ts = TelegramSender()
     ts.start()
