@@ -70,6 +70,7 @@ def send_message(chat_id, text):
         logger.error(e)
 
 
+'''
 def send_qq_message(group_num, text):
     url = '{}/send/group/{}/{}'.format(config['qq_url'], group_num, quote(text))
     try:
@@ -78,6 +79,11 @@ def send_qq_message(group_num, text):
         logger.debug(r.text.replace('\n', ''))
     except requests.RequestException as e:
         logger.error(e)
+'''
+
+
+def send_qq_message(group_num, text):
+    ret = os.system('qq send group {} "{}"'.format(group_num, text))
 
 
 def start(bot, update):
@@ -125,9 +131,13 @@ def handle_message(bot, update: Update):
     elif update.message.game:
         text = '<Game> {}'.format(update.message.game.title)
     if update.message.forward_from:  # forwarded from user
+        fuid = usn = update.message.forward_from.from_user.id
+        ffn = update.message.forward_from.from_user.first_name
+        fln = update.message.forward_from.from_user.last_name
+        fusn = update.message.forward_from.from_user.username
+        fdisp = remarks.get(str(fuid)) if str(fuid) in remarks else ffn
         text = '\n[Forwarded from {disp}]\n{text}' \
-            .format(disp=display_name, fn=update.message.forward_from.first_name,
-                    ln=update.message.forward_from.last_name, text=text)
+            .format(disp=fdisp, fn=ffn, ln=fln, text=text)
     elif update.message.forward_from_chat:  # forwarded from channel
         text = '\n[Forwarded from {cn}]\n{text}' \
             .format(cn=update.message.forward_from_chat.title, text=text)
@@ -145,14 +155,11 @@ def handle_message(bot, update: Update):
                     .format(qnick=nickname, text=text)  # show @nickname directly
             else:
                 text = '\n[In reply to {rdisp}]\n{text}' \
-                    .format(rdisp=rdisp, rfn=rfn,
-                            rln=rln, text=text)
+                    .format(rdisp=rdisp, rfn=rfn, rln=rln, text=text)
         else:
             text = '\n[In reply to {rdisp}]\n{text}' \
-                .format(rdisp=rdisp, rfn=rfn,
-                        rln=rln, text=text)  # show telegram name
+                .format(rdisp=rdisp, rfn=rfn, rln=rln, text=text)  # show telegram name
 
-    # message = '{} {} (@{}):\n{}'.format(fn, ln, usn, text)
     message = '{disp}: {text}'.format(disp=display_name, fn=fn, usn=usn, text=text)
 
     send_qq_message(config['group'], message)
