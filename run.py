@@ -12,7 +12,6 @@ import sys
 from flask import Flask
 import logging.handlers
 import requests
-from urllib.parse import quote
 import flask
 import re
 import os
@@ -106,16 +105,26 @@ def handle_message(bot, update: Update):
     if update.message.text.startswith('/'):  # turn bug into feature
         logger.debug('Ignoring message {}'.format(update.message.text))
         return
+
+        # if update.message.new_chat_members: # will crash, don't know why
+        # logging.debug(update.message.new_chat_members)
+        # usernames = [user.username for user in update.message.new_chat_members]
+        # logger.debug(', '.join(usernames) + ' joined the group')
+        # send_qq_message(config['group'], ', '.join(usernames) + ' joined the group')
+        # return
+
     uid = update.message.from_user.id
     fn = update.message.from_user.first_name
     ln = update.message.from_user.last_name
     usn = update.message.from_user.username
-    text = update.message.text.replace('/', '%2F')
+    text = update.message.text
     if update.edited_message:
         text = '[Edited] {}'.format(update.edited_message.text)
     display_name = remarks.get(str(uid)) if str(uid) in remarks else fn
     if update.message.sticker:
-        text = update.message.sticker.emoji + ' (Sticker)'
+        logger.debug('Sticker ignored')
+        return
+        # text = update.message.sticker.emoji + ' (Sticker)'
     elif update.message.photo:
         text = '<Photo>'
     elif update.message.video:
