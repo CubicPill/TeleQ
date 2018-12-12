@@ -1,3 +1,9 @@
+## This project has been discontinued
+
+According to the announcement by Tencent, SmartQQ will go offline at 2019/01/01. Since the QQ port of this project is based on SmartQQ protocol, the project will die soon. 
+
+I'm considering building a new one with other protocols. But currently I cannot offer any schedules. Bye!
+
 # TeleQ
 A bidirectional syncing application between QQ and Telegram.
 ## Usage
